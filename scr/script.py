@@ -3,147 +3,136 @@ import fdb
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, Toplevel, Text, Scrollbar, RIGHT, Y, END
 from dotenv import load_dotenv
 import os
-from pdfrw import PdfReader, PageMerge, PdfWriter
 
 # Carregar variáveis de ambiente do arquivo .env
 load_dotenv()
 
-def gerar_pdf(numero_orcamento):
+def conectar_banco():
+    """Conecta ao banco de dados Firebird."""
     try:
-        # Conectar ao banco de dados Firebird usando variáveis de ambiente
-        conn = fdb.connect(
-            dsn=f'{os.getenv("FIREBIRD_HOST")}:{os.getenv("FIREBIRD_DATABASE")}',
+        return fdb.connect(
+            dsn=f"{os.getenv('FIREBIRD_HOST')}:{os.getenv('FIREBIRD_DATABASE')}",
             user=os.getenv("FIREBIRD_USER"),
             password=os.getenv("FIREBIRD_PASSWORD")
         )
-        cursor = conn.cursor()
+    except Exception as e:
+        raise ConnectionError(f"Erro ao conectar ao banco de dados: {e}")
 
-        # Recuperar dados do orçamento
-        query_orcamento = f"""
-            SELECT o.NRORC, o.DTENTR, o.CDCLI, o.NOMEPA, 
-                   f.NRCRM, o.VRRQU, o.ENDEPA, o.CDCON
-            FROM FC15000 o
-            JOIN FC15100 f ON o.NRORC = f.NRORC
-            WHERE o.NRORC = {numero_orcamento}
-        """
-        df_orcamento = pd.read_sql(query_orcamento, conn)
+def recuperar_dados_orcamento(conn, cdfil, nrrqu):
+    """Recupera os dados do orçamento e itens."""
+    query1 = """
+    SELECT o.NRORC, o.DTENTR, o.CDCLI, o.NOMEPA, 
+           f.NRCRM, o.VRRQU, o.ENDEPA, o.CDCON
+    FROM FC15000 o
+    JOIN FC15100 f ON o.NRORC = f.NRORC
+    WHERE o.NRORC = ?
+    """
+    query2 = """
+    SELECT CDFIL, NRORC AS NRRQU, SERIEO AS SERIER, TITROT AS DESCRDAV, 
+           QTCONT AS QTDAV, UNIVOL AS UNIDADAV, PRREAL AS VALOR
+    FROM FC15100
+    WHERE CDFIL = ? AND NRORC = ?
+    ORDER BY SERIEO
+    """
+    dados_orcamento = pd.read_sql(query1, conn, params=[nrrqu])
+    itens_orcamento = pd.read_sql(query2, conn, params=[cdfil, nrrqu])
+    
+    return dados_orcamento, itens_orcamento
 
-        # Recuperar itens do orçamento
-        query_itens = f"SELECT * FROM FC15110 WHERE NRORC = {numero_orcamento}"
-        df_itens = pd.read_sql(query_itens, conn)
+def formatar_dados(dados_orcamento, itens_orcamento):
+    """Formata os dados do orçamento no formato solicitado."""
+    formatted_data = []
+    for _, row in itens_orcamento.iterrows():
+        orcamento = f"ORC:{int(row['CDFIL']):04d}-{row['NRRQU']}-{row['SERIER']}"
+        descricao = f"{row['DESCRDAV']} {row['QTDAV']}{row['UNIDADAV']}"
+        valor = f"Valor R$: {row['VALOR']:.2f}" if not pd.isnull(row['VALOR']) else "Valor não disponível"
+        formatted_data.append(f"{orcamento}\nFORMULA MANIPULADA - {descricao}\n{valor}")
+    return formatted_data
 
-        # Fechar a conexão
-        cursor.close()
-        conn.close()
+def criar_pdf(formatted_data, cdfil, nrrqu):
+    """Cria o PDF com os dados formatados e o salva na pasta Downloads."""
+    download_folder = os.path.join(os.path.expanduser("~"), "Downloads")
+    pdf_path = os.path.join(download_folder, f"Orcamento_{cdfil}_{nrrqu}.pdf")
+    
+    pdf = canvas.Canvas(pdf_path, pagesize=letter)
+    width, height = letter
 
-        # Calcular o valor total do orçamento
-        valor_total_orcamento = df_orcamento['VRRQU'].sum()
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(50, height - 40, "Relatório de Orçamento")
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(50, height - 60, f"CDFIL: {cdfil}, NRRQU: {nrrqu}")
+    pdf.drawString(50, height - 75, f"Gerado em: {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
-        # Ler o modelo de orçamento PDF
-        modelo_orcamento = PdfReader('modelo_orcamento.pdf')
-        first_page = modelo_orcamento.pages[0]
+    y = height - 100
+    for line in formatted_data:
+        pdf.drawString(50, y, line)
+        y -= 30  # Ajuste para espaçamento entre as linhas
+        if y < 40:
+            pdf.showPage()
+            y = height - 40
 
-        # Criar PDF usando o modelo de fundo
-        overlay = canvas.Canvas('overlay.pdf', pagesize=letter)
-        width, height = letter
+    pdf.save()
+    return pdf_path
 
-        # Adicionar Cabeçalho e Informações
-        overlay.setFont("Helvetica-Bold", 10)
-        overlay.drawString(50, height - 40, "EMPRESA LTDA.")
-        overlay.setFont("Helvetica", 10)
-        overlay.drawString(50, height - 60, "RUA DAS CASAS, 666, ITAPEVI, SP")
-        overlay.drawString(50, height - 75, "CNPJ: 99.999.999/9999-62")
+def exibir_preview(formatted_data, cdfil, nrrqu):
+    """Exibe o preview dos dados formatados antes de salvar o PDF."""
+    preview_window = Toplevel()
+    preview_window.title("Pré-visualização do PDF")
 
-        overlay.setFont("Helvetica-Bold", 12)
-        overlay.drawString(400, height - 40, f"Data: {pd.Timestamp.now().strftime('%d/%m/%Y')}")
-        overlay.drawString(400, height - 60, f"Hora: {pd.Timestamp.now().strftime('%H:%M:%S')}")
-        overlay.drawString(400, height - 75, f"Número do Orçamento: {numero_orcamento}")
+    text_widget = Text(preview_window, wrap="word", width=80, height=25)
+    scrollbar = Scrollbar(preview_window, command=text_widget.yview)
+    text_widget.configure(yscrollcommand=scrollbar.set)
+    scrollbar.pack(side=RIGHT, fill=Y)
+    text_widget.pack(expand=True, fill="both")
 
-        overlay.setLineWidth(1)
-        overlay.line(50, height - 85, width - 50, height - 85)
+    for line in formatted_data:
+        text_widget.insert(END, line + "\n")
 
-        overlay.setFont("Helvetica-Bold", 10)
-        overlay.drawString(50, height - 100, "Informações do Cliente")
-        overlay.setFont("Helvetica", 10)
-        for _, row in df_orcamento.iterrows():
-            overlay.drawString(50, height - 115, f"Nome do Paciente: {str(row['NOMEPA'])}")
-            overlay.drawString(50, height - 130, f"Endereço: {str(row['ENDEPA'])}")
-            overlay.drawString(50, height - 145, f"CRM do Médico: {str(row['NRCRM'])}")
-            overlay.drawString(50, height - 160, f"Data de Entrada: {str(row['DTENTR'])}")
+    def salvar_pdf():
+        pdf_path = criar_pdf(formatted_data, cdfil, nrrqu)
+        messagebox.showinfo("Sucesso", f"PDF salvo com sucesso na pasta Downloads: {pdf_path}")
+        preview_window.destroy()
 
-        overlay.setLineWidth(1)
-        overlay.line(50, height - 175, width - 50, height - 175)
+    tk.Button(preview_window, text="Salvar PDF", command=salvar_pdf).pack(pady=10)
 
-        overlay.setFont("Helvetica-Bold", 10)
-        overlay.drawString(50, height - 190, "Itens do Orçamento")
-        y = height - 205
-        overlay.setFont("Helvetica", 10)
-        overlay.drawString(50, y, "Produto")
-        overlay.drawString(200, y, "Descrição")
-        overlay.drawString(350, y, "Quantidade")
-        overlay.drawString(450, y, "Preço Unitário")
-        overlay.drawString(550, y, "Total")
-        y -= 15
-
-        for _, row in df_itens.iterrows():
-            overlay.drawString(50, y, str(row['CDPRO']))
-            overlay.drawString(200, y, str(row['DESCR']))
-            overlay.drawString(350, y, str(row['QUANT']))
-            overlay.drawString(450, y, f"{row['VRCMP']:.2f}")
-            overlay.drawString(550, y, f"{row['VRCMP'] * row['QUANT']:.2f}")
-            y -= 15
-            if y < 40:
-                overlay.showPage()
-                y = height - 40
-                overlay.setFont("Helvetica", 10)
-
-        overlay.setLineWidth(1)
-        overlay.line(50, y - 5, width - 50, y - 5)
-
-        overlay.setFont("Helvetica-Bold", 10)
-        overlay.drawString(50, y - 20, f'Valor Total do Orçamento: R$ {valor_total_orcamento:.2f}')
-
-        overlay.setFont("Helvetica", 8)
-        overlay.drawString(50, 30, "Obrigado por escolher nossa empresa.")
-        overlay.drawString(50, 20, "Entre em contato para mais informações.")
-
-        # Salvar a sobreposição
-        overlay.save()
-        
-        # Mesclar a sobreposição com o modelo
-        overlay_reader = PdfReader('overlay.pdf')
-        overlay_page = overlay_reader.pages[0]
-
-        merger = PageMerge(first_page)
-        merger.add(overlay_page).render()
-
-        output = PdfWriter()
-        output.addpage(first_page)
-        output.write(f'relatorio_{numero_orcamento}.pdf')
-
-        messagebox.showinfo("Sucesso", f"Relatório PDF gerado: relatorio_{numero_orcamento}.pdf")
+def gerar_pdf(cdfil, nrrqu):
+    """Controla o fluxo de geração de PDF."""
+    try:
+        conn = conectar_banco()
+        try:
+            dados_orcamento, itens_orcamento = recuperar_dados_orcamento(conn, cdfil, nrrqu)
+            formatted_data = formatar_dados(dados_orcamento, itens_orcamento)
+            exibir_preview(formatted_data, cdfil, nrrqu)
+        finally:
+            conn.close()
     except Exception as e:
         messagebox.showerror("Erro", f"Erro ao gerar PDF: {e}")
 
 def criar_interface():
+    """Cria a interface gráfica para entrada de dados."""
     root = tk.Tk()
     root.title("Gerar PDF de Orçamento")
 
-    tk.Label(root, text="Número do Orçamento:").grid(row=0, column=0)
-    numero_orcamento_entry = tk.Entry(root)
-    numero_orcamento_entry.grid(row=0, column=1)
+    tk.Label(root, text="CDFIL:").grid(row=0, column=0)
+    cdfil_entry = tk.Entry(root)
+    cdfil_entry.grid(row=0, column=1)
+
+    tk.Label(root, text="NRRQU:").grid(row=1, column=0)
+    nrrqu_entry = tk.Entry(root)
+    nrrqu_entry.grid(row=1, column=1)
 
     def on_gerar_pdf():
-        numero_orcamento = numero_orcamento_entry.get()
-        if numero_orcamento.isdigit():
-            gerar_pdf(numero_orcamento)
+        cdfil = cdfil_entry.get()
+        nrrqu = nrrqu_entry.get()
+        if cdfil.isdigit() and nrrqu.isdigit():
+            gerar_pdf(int(cdfil), int(nrrqu))
         else:
-            messagebox.showerror("Erro", "Por favor, insira um número de orçamento válido.")
+            messagebox.showerror("Erro", "Por favor, insira valores numéricos válidos.")
 
-    tk.Button(root, text="Gerar PDF", command=on_gerar_pdf).grid(row=1, columnspan=2)
+    tk.Button(root, text="Gerar PDF", command=on_gerar_pdf).grid(row=2, columnspan=2)
 
     root.mainloop()
 
