@@ -21,63 +21,72 @@ def conectar_banco():
     except Exception as e:
         raise ConnectionError(f"Erro ao conectar ao banco de dados: {e}")
 
-def recuperar_dados_orcamento(conn, cdfil, nrrqu):
+def recuperar_dados_orcamento(conn, cdfil, nrorc):
     """Recupera os dados do orçamento e itens."""
     query1 = """
-    SELECT o.NRORC, o.DTENTR, o.CDCLI, o.NOMEPA, 
-           f.NRCRM, o.VRRQU, o.ENDEPA, o.CDCON
-    FROM FC15000 o
-    JOIN FC15100 f ON o.NRORC = f.NRORC
-    WHERE o.NRORC = ?
+    SELECT INDPAG FROM FC15100
+    WHERE CDFIL = ?
+    AND NRORC = ?
     """
     query2 = """
-    SELECT CDFIL, NRORC AS NRRQU, SERIEO AS SERIER, TITROT AS DESCRDAV, 
-           QTCONT AS QTDAV, UNIVOL AS UNIDADAV, PRREAL AS VALOR
-    FROM FC15100
-    WHERE CDFIL = ? AND NRORC = ?
-    ORDER BY SERIEO
+    SELECT CDFIL, NRORC, SERIEO, ITEMID, DESCR, QUANT, UNIDA, VRCMP, CDPRO
+    FROM FC15110
+    WHERE CDFIL = ? AND NRORC = ? 
+    AND TPCMP IN ( 'C', 'S','H' ) 
+    ORDER BY SERIEO, ITEMID
     """
-    dados_orcamento = pd.read_sql(query1, conn, params=[nrrqu])
-    itens_orcamento = pd.read_sql(query2, conn, params=[cdfil, nrrqu])
-    
+    dados_orcamento = pd.read_sql(query1, conn, params=[cdfil, nrorc])
+    itens_orcamento = pd.read_sql(query2, conn, params=[cdfil, nrorc])
+
     return dados_orcamento, itens_orcamento
 
 def formatar_dados(dados_orcamento, itens_orcamento):
     """Formata os dados do orçamento no formato solicitado."""
     formatted_data = []
-    for _, row in itens_orcamento.iterrows():
-        orcamento = f"ORC:{int(row['CDFIL']):04d}-{row['NRRQU']}-{row['SERIER']}"
-        descricao = f"{row['DESCRDAV']} {row['QTDAV']}{row['UNIDADAV']}"
-        valor = f"Valor R$: {row['VALOR']:.2f}" if not pd.isnull(row['VALOR']) else "Valor não disponível"
-        formatted_data.append(f"{orcamento}\nFORMULA MANIPULADA - {descricao}\n{valor}")
+    sub_total = 0  # Variável para calcular o subtotal
+
+    for serie, grupo in itens_orcamento.groupby('SERIEO'):
+        formatted_data.append(f"ORC:{int(grupo.iloc[0]['CDFIL']):04d}-{grupo.iloc[0]['NRORC']}-{serie}:")
+        for _, row in grupo.iterrows():
+            descricao = f" - {row['DESCR'] or 'Descrição não disponível'}: {row['QUANT']}{row['UNIDA']} | {row['CDPRO']}"
+            valor = f"Valor R$: {row['VRCMP']:.2f}" if not pd.isnull(row['VRCMP']) else "Valor não disponível"
+            formatted_data.append(f"{descricao}\n{valor}\n")
+            sub_total += row['VRCMP'] if not pd.isnull(row['VRCMP']) else 0
+
+    # Adicionar subtotal e total ao final dos dados formatados
+    formatted_data.append(f"\nSUB-TOTAL: R$ {sub_total:.2f}")
+    formatted_data.append(f"TOTAL: R$ {sub_total:.2f}")
+
     return formatted_data
 
-def criar_pdf(formatted_data, cdfil, nrrqu):
+def criar_pdf(formatted_data, cdfil, nrorc):
     """Cria o PDF com os dados formatados e o salva na pasta Downloads."""
     download_folder = os.path.join(os.path.expanduser("~"), "Downloads")
-    pdf_path = os.path.join(download_folder, f"Orcamento_{cdfil}_{nrrqu}.pdf")
-    
+    pdf_path = os.path.join(download_folder, f"Orcamento_{cdfil}_{nrorc}.pdf")
+
     pdf = canvas.Canvas(pdf_path, pagesize=letter)
     width, height = letter
 
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(50, height - 40, "Relatório de Orçamento")
     pdf.setFont("Helvetica", 10)
-    pdf.drawString(50, height - 60, f"CDFIL: {cdfil}, NRRQU: {nrrqu}")
+    pdf.drawString(50, height - 60, f"CDFIL: {cdfil}, NRORC: {nrorc}")
     pdf.drawString(50, height - 75, f"Gerado em: {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M:%S')}")
 
     y = height - 100
     for line in formatted_data:
-        pdf.drawString(50, y, line)
-        y -= 30  # Ajuste para espaçamento entre as linhas
-        if y < 40:
-            pdf.showPage()
-            y = height - 40
+        for subline in line.split("\n"):
+            pdf.drawString(50, y, subline)
+            y -= 20
+            if y < 40:
+                pdf.showPage()
+                pdf.setFont("Helvetica", 10)
+                y = height - 40
 
     pdf.save()
     return pdf_path
 
-def exibir_preview(formatted_data, cdfil, nrrqu):
+def exibir_preview(formatted_data, cdfil, nrorc):
     """Exibe o preview dos dados formatados antes de salvar o PDF."""
     preview_window = Toplevel()
     preview_window.title("Pré-visualização do PDF")
@@ -92,20 +101,20 @@ def exibir_preview(formatted_data, cdfil, nrrqu):
         text_widget.insert(END, line + "\n")
 
     def salvar_pdf():
-        pdf_path = criar_pdf(formatted_data, cdfil, nrrqu)
+        pdf_path = criar_pdf(formatted_data, cdfil, nrorc)
         messagebox.showinfo("Sucesso", f"PDF salvo com sucesso na pasta Downloads: {pdf_path}")
         preview_window.destroy()
 
     tk.Button(preview_window, text="Salvar PDF", command=salvar_pdf).pack(pady=10)
 
-def gerar_pdf(cdfil, nrrqu):
+def gerar_pdf(cdfil, nrorc):
     """Controla o fluxo de geração de PDF."""
     try:
         conn = conectar_banco()
         try:
-            dados_orcamento, itens_orcamento = recuperar_dados_orcamento(conn, cdfil, nrrqu)
+            dados_orcamento, itens_orcamento = recuperar_dados_orcamento(conn, cdfil, nrorc)
             formatted_data = formatar_dados(dados_orcamento, itens_orcamento)
-            exibir_preview(formatted_data, cdfil, nrrqu)
+            exibir_preview(formatted_data, cdfil, nrorc)
         finally:
             conn.close()
     except Exception as e:
@@ -120,15 +129,15 @@ def criar_interface():
     cdfil_entry = tk.Entry(root)
     cdfil_entry.grid(row=0, column=1)
 
-    tk.Label(root, text="NRRQU:").grid(row=1, column=0)
-    nrrqu_entry = tk.Entry(root)
-    nrrqu_entry.grid(row=1, column=1)
+    tk.Label(root, text="NRORC:").grid(row=1, column=0)
+    nrorc_entry = tk.Entry(root)
+    nrorc_entry.grid(row=1, column=1)
 
     def on_gerar_pdf():
         cdfil = cdfil_entry.get()
-        nrrqu = nrrqu_entry.get()
-        if cdfil.isdigit() and nrrqu.isdigit():
-            gerar_pdf(int(cdfil), int(nrrqu))
+        nrorc = nrorc_entry.get()
+        if cdfil.isdigit() and nrorc.isdigit():
+            gerar_pdf(int(cdfil), int(nrorc))
         else:
             messagebox.showerror("Erro", "Por favor, insira valores numéricos válidos.")
 
