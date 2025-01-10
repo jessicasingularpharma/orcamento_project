@@ -23,35 +23,36 @@ def conectar_banco():
 
 def recuperar_dados_orcamento(conn, cdfil, nrorc):
     """Recupera os dados do orçamento e itens."""
-    query1 = """
-    SELECT INDPAG FROM FC15100
-    WHERE CDFIL = ?
-    AND NRORC = ?
+    query = """
+    SELECT item.CDFIL, item.NRORC, item.SERIEO, item.ITEMID, item.DESCR, item.QUANT, item.UNIDA, item.VRCMP, item.CDPRO, 
+           orc.VOLUME, orc.UNIVOL, orc.TPCAP
+    FROM FC15110 item
+    LEFT JOIN FC15100 orc ON item.CDFIL = orc.CDFIL AND item.NRORC = orc.NRORC AND item.SERIEO = orc.SERIEO
+    WHERE item.CDFIL = ? AND item.NRORC = ?
+    AND item.TPCMP IN ( 'C', 'S','H' ) 
+    ORDER BY item.SERIEO, item.ITEMID
     """
-    query2 = """
-    SELECT CDFIL, NRORC, SERIEO, ITEMID, DESCR, QUANT, UNIDA, VRCMP, CDPRO
-    FROM FC15110
-    WHERE CDFIL = ? AND NRORC = ? 
-    AND TPCMP IN ( 'C', 'S','H' ) 
-    ORDER BY SERIEO, ITEMID
-    """
-    dados_orcamento = pd.read_sql(query1, conn, params=[cdfil, nrorc])
-    itens_orcamento = pd.read_sql(query2, conn, params=[cdfil, nrorc])
+    itens_orcamento = pd.read_sql(query, conn, params=[cdfil, nrorc])
 
-    return dados_orcamento, itens_orcamento
+    return itens_orcamento
 
-def formatar_dados(dados_orcamento, itens_orcamento):
+def formatar_dados(itens_orcamento):
     """Formata os dados do orçamento no formato solicitado."""
     formatted_data = []
     sub_total = 0  # Variável para calcular o subtotal
 
     for serie, grupo in itens_orcamento.groupby('SERIEO'):
+        serie_total = 0  # Variável para calcular o total por série
         formatted_data.append(f"ORC:{int(grupo.iloc[0]['CDFIL']):04d}-{grupo.iloc[0]['NRORC']}-{serie}:")
         for _, row in grupo.iterrows():
             descricao = f" - {row['DESCR'] or 'Descrição não disponível'}: {row['QUANT']}{row['UNIDA']} | {row['CDPRO']}"
-            valor = f"Valor R$: {row['VRCMP']:.2f}" if not pd.isnull(row['VRCMP']) else "Valor não disponível"
-            formatted_data.append(f"{descricao}\n{valor}\n")
+            volume = f"Volume: {row['VOLUME']} {row['UNIVOL']}, Tipo de Cápsula: {row['TPCAP']}" if row['VOLUME'] and row['UNIVOL'] and row['TPCAP'] else ""
+            formatted_data.append(f"{descricao}\n{volume}\n")
             sub_total += row['VRCMP'] if not pd.isnull(row['VRCMP']) else 0
+            serie_total += row['VRCMP'] if not pd.isnull(row['VRCMP']) else 0
+
+        # Adicionar total da série ao final dos dados da série
+        formatted_data.append(f"Total da Série {serie}: R$ {serie_total:.2f}\n")
 
     # Adicionar subtotal e total ao final dos dados formatados
     formatted_data.append(f"\nSUB-TOTAL: R$ {sub_total:.2f}")
@@ -112,8 +113,8 @@ def gerar_pdf(cdfil, nrorc):
     try:
         conn = conectar_banco()
         try:
-            dados_orcamento, itens_orcamento = recuperar_dados_orcamento(conn, cdfil, nrorc)
-            formatted_data = formatar_dados(dados_orcamento, itens_orcamento)
+            itens_orcamento = recuperar_dados_orcamento(conn, cdfil, nrorc)
+            formatted_data = formatar_dados(itens_orcamento)
             exibir_preview(formatted_data, cdfil, nrorc)
         finally:
             conn.close()
