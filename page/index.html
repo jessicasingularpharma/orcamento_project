@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orçamento - Singular Pharma</title>
+    <style>
+           body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: auto;
+            padding: 10px;
+            text-align: center;
+        }
+        h2 {
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .resumo {
+            margin-top: 20px;
+            text-align: left;
+        }
+        .resumo div {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+        .resumo div strong {
+            color: #333;
+        }
+        .logo {
+            max-width: 850px;
+            margin-bottom: 100px;
+        }
+        .formas-pagamento {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        footer {
+            margin-top: 40px;
+            padding: 20px 0;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+        }
+        footer a {
+            text-decoration: none;
+            color: inherit;
+        }
+        footer img {
+            max-width: 200px;
+            width: 100%;
+            height: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <img src="\img\logo.png" alt="Logo da Singular Pharma" class="logo">
+    <h2>Orçamento - Singular Pharma</h2>
+    
+    <label for="nome-cliente">Nome do Cliente:</label>
+    <input id="nome-cliente" type="text" style="width: 100%; margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Fórmula</th>
+                <th>Valor</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>Nome da Fórmula</td>
+                <td>R$ 00,00</td>
+            </tr>
+            <!-- Mais linhas podem ser adicionadas aqui -->
+        </tbody>
+    </table>
+    
+    <div class="resumo">
+        <div><strong>Subtotal em fórmulas manipuladas:</strong> <span>R$ 00,00</span></div>
+        <div><strong>Desconto:</strong> <span>R$ 00,00</span></div>
+        <div><strong>Taxa de Entrega:</strong> <span>R$ 10,00</span></div>
+        <div><strong>Total Geral:</strong> <span>R$ 00,00</span></div>
+    </div>
+    
+    <div class="formas-pagamento">
+        <strong>Formas de Pagamento:</strong>
+        <ul>
+            <li>Pix</li>
+            <li>Depósito Bancário</li>
+            <li>Cartão de Crédito via link</li>
+        </ul>
+        <p><small><strong>OBS:</strong> Caso a entrega não seja efetuada pelo cliente, será cobrada uma taxa de reentrega de R$ 10,00.</small></p>
+    </div>
+    
+    <footer>
+        <p>Para mais informações, acesse nosso site:</p>
+        <a href="https://singularpharma.com.br/">
+            <img src="\img\paginafinal.png" alt="Logo da Singular Pharma">
+        </a>
+    </footer>
+</body>
+</html>
