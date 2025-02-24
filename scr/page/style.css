@@ -1,0 +1,174 @@
+/* Estilos gerais */
+body {
+    font-family: Arial, sans-serif;
+    max-width: 900px;
+    margin: auto;
+    padding: 10px;
+    text-align: center;
+    background-color: #fff;
+    position: relative;
+}
+
+/* Marca d'água */
+body::before {
+    content: "";
+    background-image: url('logo_azul.png'); /* Caminho da logo */
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100%; /* Ajuste o tamanho da logo */
+    opacity: 0.2; /* Transparência da logo */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -5; /* Coloca a marca d'água atrás do conteúdo */
+}
+
+h2 {
+    text-align: center;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+th {
+    background-color: #f4f4f4;
+}
+
+.resumo {
+    margin-top: 20px;
+    text-align: left;
+}
+
+.resumo div {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+}
+
+.resumo div strong {
+    color: #333;
+}
+
+.logo {
+    max-width: 8000px; /* Ajuste a largura máxima da logo */
+    margin-bottom: 30px; /* Reduza a margem inferior */
+    width: 100%;
+    height: auto;
+}
+
+.formas-pagamento {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px 0;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+footer {
+    margin-top: 40px;
+    padding: 20px 0;
+    border-top: 1px solid #ddd;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}
+
+footer a {
+    text-decoration: none;
+    color: inherit;
+}
+
+footer img {
+    max-width: 8000px;
+    width: 100%;
+    height: auto;
+    margin-top: 10px;
+}
+
+.input-cliente {
+    width: 100%;
+    margin-bottom: 20px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* Responsividade */
+@media (max-width: 900px) {
+    body {
+        padding: 5px;
+    }
+
+    .logo {
+        margin-bottom: 50px;
+    }
+
+    table, th, td {
+        font-size: 12px;
+    }
+
+    .formas-pagamento {
+        font-size: 12px;
+        background-color: transparent;
+        border: 1px solid #9ebdda;
+    }
+
+    footer {
+        font-size: 12px;
+    }
+}
+
+/* Estilos para impressão */
+@media print {
+    body {
+        max-width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+
+    .container {
+        width: 100%;
+        height: 100%;
+    }
+
+    .logo {
+        max-width: 100%;
+        margin-bottom: 50px;
+    }
+
+    .input-cliente {
+        border: 1px solid #000;
+    }
+
+    table, th, td {
+        border: 1px solid #000;
+    }
+
+    .formas-pagamento {
+        background-color: transparent;
+        border: 1px solid #9ebdda;
+    }
+
+    footer {
+        border-top: 1px solid #000;
+    }
+
+    /* Ajuste da marca d'água para impressão */
+    body::before {
+        opacity: 10; /* Reduz a transparência para impressão */
+        background-size: 50%; /* Ajusta o tamanho da logo para impressão */
+    }
+}

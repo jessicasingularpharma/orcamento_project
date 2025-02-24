@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orçamento - Singular Pharma</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <img src="\img\logo.png" alt="Logo da Singular Pharma" class="logo">
+            <h2>Segue Orçamento Para Seu Tratamento</h2>
+        </header>
+
+        <main>
+            <form>
+                <label for="nome-cliente">Nome do Cliente:</label>
+                <input id="nome-cliente" type="text" class="input-cliente" required>
+                
+                <label for="Orçamento">Orçamento:</label>
+                <input id="Orçamento" type="text" class="input-Orçamento" required>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Fórmula</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td>Nome da Fórmula</td>
+                            <td>R$ 00,00</td>
+                        </tr>
+                        <!-- Mais linhas podem ser adicionadas aqui -->
+                    </tbody>
+                </table>
+                
+                <div class="resumo">
+                    <div><strong>Subtotal em fórmulas manipuladas:</strong> <span>R$ 00,00</span></div>
+                    <div><strong>Desconto:</strong> <span>R$ 00,00</span></div>
+                    <div><strong>Taxa de Entrega:</strong> <span>R$ 10,00</span></div>
+                    <div><strong>Total Geral:</strong> <span>R$ 00,00</span></div>
+                </div>
+                
+                <div class="formas-pagamento">
+                    <strong>Formas de Pagamento:</strong>
+                    <ul>
+                        <br> Pix
+                        <br> Depósito Bancário
+                        <br>Cartão de Crédito via link</li>
+                    </ul>
+                    <p><small><strong>OBS:</strong> Caso a entrega não seja efetuada pelo cliente, será cobrada uma taxa de reentrega de R$ 10,00.</small></p>
+                </div>
+            </form>
+        </main>
+
+        <footer>
+            <p>Para mais informações, acesse nosso site:</p>
+            <a href="https://singularpharma.com.br/">
+                <img src="\img/paginafinal.png" alt="Logo da Singular Pharma">
+            </a>
+        </footer>
+    </div>
+</body>
+</html>
